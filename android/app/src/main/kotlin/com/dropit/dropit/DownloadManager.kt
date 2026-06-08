@@ -1,6 +1,7 @@
 package com.dropit.dropit
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -11,12 +12,28 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 class DownloadManager(private val context: Context) {
     private val TAG = "DropIt"
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val activeJobs = ConcurrentHashMap<String, Job>()
     private var eventSink: EventChannel.EventSink? = null
+    private val activeCount = AtomicInteger(0)
+
+    private fun startForegroundServiceIfNeeded() {
+        if (activeCount.incrementAndGet() == 1) {
+            Log.i(TAG, "[DownloadManager] starting foreground service")
+            context.startForegroundService(Intent(context, DownloadService::class.java))
+        }
+    }
+
+    private fun stopForegroundServiceIfDone() {
+        if (activeCount.decrementAndGet() == 0) {
+            Log.i(TAG, "[DownloadManager] all downloads done — stopping foreground service")
+            context.stopService(Intent(context, DownloadService::class.java))
+        }
+    }
 
     val progressStreamHandler = object : EventChannel.StreamHandler {
         override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
@@ -47,7 +64,10 @@ class DownloadManager(private val context: Context) {
         Log.i(TAG, "[DownloadManager] download() START id=$downloadId platform=$platform quality=$quality isPlaylist=$isPlaylist")
         Log.i(TAG, "[DownloadManager] url=$url  outputPath=$outputPath")
 
+        startForegroundServiceIfNeeded()
+
         val job = scope.launch {
+            try {
             emit(mapOf("downloadId" to downloadId, "status" to "downloading", "progress" to 0.0))
             val outDir = File(outputPath)
             val mkdirOk = outDir.mkdirs()
@@ -89,6 +109,9 @@ class DownloadManager(private val context: Context) {
                 Log.e(TAG, "[DownloadManager] all 3 attempts failed id=$downloadId: ${lastError.message}", lastError)
                 emit(mapOf("downloadId" to downloadId, "status" to "failed",
                     "error" to (lastError.message ?: "Unknown error")))
+            }
+            } finally {
+                stopForegroundServiceIfDone()
             }
         }
         activeJobs[downloadId] = job
