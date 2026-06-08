@@ -27,9 +27,9 @@ class Neu {
           offset: const Offset(-3, -3),
           blurRadius: 6,
         ),
-        BoxShadow(
+        const BoxShadow(
           color: _light,
-          offset: const Offset(3, 3),
+          offset: Offset(3, 3),
           blurRadius: 6,
         ),
       ];

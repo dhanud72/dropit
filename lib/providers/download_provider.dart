@@ -28,8 +28,12 @@ class DownloadProvider extends ChangeNotifier {
           i.status == DownloadStatus.queued)
       .toList();
 
-  List<DownloadItem> get completedDownloads =>
-      _items.where((i) => i.status == DownloadStatus.done).toList();
+  List<DownloadItem> get completedDownloads => _items
+      .where((i) =>
+          i.status == DownloadStatus.done ||
+          i.status == DownloadStatus.failed ||
+          i.status == DownloadStatus.cancelled)
+      .toList();
 
   Future<void> initialize() async {
     await NotificationService.init();
@@ -192,7 +196,9 @@ class DownloadProvider extends ChangeNotifier {
   }
 
   Future<void> retryDownload(String id) async {
-    final item = _items.firstWhere((i) => i.id == id);
+    final item = _items.firstWhere((i) => i.id == id,
+        orElse: () => DownloadItem(id: '', url: '', platform: Platform.unknown));
+    if (item.id.isEmpty) return;
     if (item.retryCount >= 3) return;
     item.retryCount++;
     item.status = DownloadStatus.queued;
@@ -203,7 +209,9 @@ class DownloadProvider extends ChangeNotifier {
   }
 
   Future<void> cancelDownload(String id) async {
-    final item = _items.firstWhere((i) => i.id == id);
+    final item = _items.firstWhere((i) => i.id == id,
+        orElse: () => DownloadItem(id: '', url: '', platform: Platform.unknown));
+    if (item.id.isEmpty) return;
     item.status = DownloadStatus.cancelled;
     await DownloadChannel.cancelDownload(id);
     await NotificationService.cancel(id);

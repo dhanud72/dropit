@@ -126,9 +126,9 @@ class _AddLinksSheetState extends State<AddLinksSheet> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 8),
                   decoration: Neu.card(radius: 10, depth: 3),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(Icons.content_paste_rounded,
                           size: 14, color: Neu.accent),
                       SizedBox(width: 6),

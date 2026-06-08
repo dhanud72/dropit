@@ -179,8 +179,8 @@ class _HomeScreenState extends State<HomeScreen>
                   emptyMsg: 'No active downloads',
                   emptyHint: 'Tap Add Links or share a URL to start'),
               _buildList(prov.completedDownloads, prov,
-                  emptyMsg: 'No completed downloads',
-                  emptyHint: 'Downloaded files will appear here'),
+                  emptyMsg: 'No history yet',
+                  emptyHint: 'Downloaded and failed items will appear here'),
             ],
           );
         },

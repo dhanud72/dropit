@@ -322,24 +322,46 @@ class DownloadManager(private val context: Context) {
         emit(mapOf("downloadId" to downloadId, "status" to "downloading", "progress" to 0.02,
             "title" to "Fetching playlist…"))
 
+        // Detect type: album (/p/album/ or /album/) vs user playlist (/p/playlist/)
+        val cleanUrl = url.lowercase().substringBefore("?")
+        val apiType = when {
+            cleanUrl.contains("/album/") -> "album"
+            cleanUrl.contains("/featured/") -> "playlist"
+            else -> "playlist"
+        }
+        Log.i(TAG, "[DownloadManager] JioSaavn detected type=$apiType url=$url")
+
+        // For album/featured, try yt-dlp first — it supports these natively
+        if (apiType == "album") {
+            Log.i(TAG, "[DownloadManager] JioSaavn album — trying yt-dlp directly")
+            try {
+                downloadWithYtdlp(downloadId, url, "jiosaavn", "audio", outDir, true)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "[DownloadManager] yt-dlp failed for album, falling back to API: ${e.message}")
+            }
+        }
+
         // Extract token from URL: last non-empty path segment (before query params)
         val token = url.substringBefore("?").trimEnd('/').substringAfterLast("/")
         Log.i(TAG, "[DownloadManager] JioSaavn playlist token=$token")
 
-        val apiUrl = "https://www.jiosaavn.com/api.php?__call=webapi.get&token=${java.net.URLEncoder.encode(token, "UTF-8")}&type=playlist&n=500&p=1&_format=json&_marker=0&ctx=web6dot0"
+        val apiUrl = "https://www.jiosaavn.com/api.php?__call=webapi.get&token=${java.net.URLEncoder.encode(token, "UTF-8")}&type=$apiType&n=500&p=1&_format=json&_marker=0&ctx=web6dot0"
         Log.i(TAG, "[DownloadManager] JioSaavn API url=$apiUrl")
 
         val json = try { httpGet(apiUrl) } catch (e: Exception) {
             throw Exception("Failed to fetch JioSaavn playlist: ${e.message}")
         }
-        Log.d(TAG, "[DownloadManager] JioSaavn API response (first 500 chars): ${json.take(500)}")
+        Log.i(TAG, "[DownloadManager] JioSaavn API response (first 300 chars): ${json.take(300)}")
 
         val playlistObj = try { org.json.JSONObject(json) } catch (e: Exception) {
-            throw Exception("JioSaavn API returned invalid JSON")
+            Log.e(TAG, "[DownloadManager] JioSaavn API returned non-JSON: ${json.take(200)}")
+            throw Exception("JioSaavn API returned invalid JSON — response: ${json.take(100)}")
         }
 
         val songsArray = playlistObj.optJSONArray("songs")
-            ?: throw Exception("No songs found in JioSaavn playlist response")
+            ?: playlistObj.optJSONArray("list")
+            ?: throw Exception("No songs found in JioSaavn response (keys: ${playlistObj.keys().asSequence().toList()})")
 
         val total = songsArray.length()
         Log.i(TAG, "[DownloadManager] JioSaavn playlist has $total songs")
@@ -358,7 +380,9 @@ class DownloadManager(private val context: Context) {
                 try {
                     val song = songsArray.getJSONObject(i)
                     val songUrl = song.optString("perma_url", "")
-                    val songTitle = song.optString("song", "Song ${i + 1}")
+                    val songTitle = song.optString("song", "").ifEmpty {
+                        song.optString("title", "Song ${i + 1}")
+                    }
 
                     if (songUrl.isEmpty()) {
                         Log.w(TAG, "[DownloadManager] JioSaavn song $i has no perma_url, skipping")

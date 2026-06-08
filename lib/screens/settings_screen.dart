@@ -138,7 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: Neu.textSecondary, fontSize: 12)),
         value: value,
         onChanged: onChanged,
-        activeColor: Neu.accent,
+        activeThumbColor: Neu.accent,
         activeTrackColor: Neu.accent.withValues(alpha: 0.3),
         inactiveThumbColor: Neu.textSecondary,
         inactiveTrackColor: Neu.textSecondary.withValues(alpha: 0.2),
@@ -231,9 +231,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 8),
               decoration: Neu.card(radius: 10, depth: 3),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(Icons.folder_outlined,
                       color: Neu.accent, size: 16),
                   SizedBox(width: 6),
